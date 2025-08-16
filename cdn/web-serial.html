@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 Serial Bridge</title>
+  <link rel="preconnect" href="https://cdn.exik.eu" crossorigin>
+  <link rel="stylesheet" href="https://cdn.exik.eu/projects/web-serial.css">
+</head>
+<body>
+  <h2>ESP32 Serial Bridge</h2>
+
+  <div class="row">
+    <span>WS: <span id="wsState" class="pill bad">odpojeno</span></span>
+    <span>Baud:</span>
+    <select id="baud">
+      <option>9600</option><option>19200</option><option>38400</option>
+      <option>57600</option><option selected>115200</option><option>230400</option>
+      <option>460800</option><option>921600</option>
+    </select>
+    <button id="applyBaud">Nastavit</button>
+    <button id="clear">Vyčistit</button>
+  </div>
+
+  <div id="log"></div>
+
+  <div class="row" style="margin-top:8px;">
+    <input id="tx" placeholder="text k odeslání…" style="flex:1;min-width:200px" />
+    <label class="pill"><input id="crlf" type="checkbox" checked> přidat CRLF</label>
+    <button id="send">Odeslat</button>
+  </div>
+
+  <script defer src="https://cdn.exik.eu/projects/web-serial.js"></script>
+</body>
+</html>
