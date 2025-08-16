@@ -47,6 +47,7 @@ void WifiManager::saveNew(const String& ssid, const String& pass) {
 
 // Attempt single connection with timeout
 bool WifiManager::attempt(const char* ssid, const char* pass, unsigned long timeout) {
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
   unsigned long start = millis();
   while (millis() - start < timeout) {
@@ -107,6 +108,7 @@ String WifiManager::portalHTML() {
 
 // Start AP and AsyncWebServer for config portal
 void WifiManager::startPortal() {
+  WiFi.mode(WIFI_AP);
   if (strlen(portalPass) > 0) WiFi.softAP(portalSsid, portalPass);
   else                   WiFi.softAP(portalSsid);
   Serial.printf("Config AP '%s' started\n", portalSsid);
@@ -129,4 +131,50 @@ void WifiManager::startPortal() {
   });
 
   server.begin();
+}
+
+// Variant that mounts routes into an existing server (under /wifi)
+String WifiManager::portalHTMLAtPath(const char* basePath) {
+  // Same content as portalHTML but with form action pointing to basePath/save
+  if (!MDNS.begin(portalSsid)) {
+    Serial.println("Error setting up MDNS responder!");
+  } else {
+    Serial.println("mDNS responder started");
+    MDNS.addService("http", "tcp", 80);
+  }
+  int n = WiFi.scanNetworks();
+  String opts;
+  for (int i = 0; i < n; ++i) {
+    opts += "<option value='" + WiFi.SSID(i) + "'>" + WiFi.SSID(i) + " (" + WiFi.RSSI(i) + "dBm)</option>\n";
+  }
+  String html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>WiFi Config</title></head><body>"
+    "<h2>Select Network</h2><form action='" + String(basePath) + "/save' method='POST'>"
+    "<label>SSID:</label><select name='ssid'>" + opts + "</select><br><br>"
+    "<label>Password:</label><input type='password' name='pass'><br><br>"
+    "<input type='submit' value='Save & Reboot'></form></body></html>";
+  return html;
+}
+
+void WifiManager::attachPortalRoutes(AsyncWebServer& s) {
+  WiFi.mode(WIFI_AP);
+  if (strlen(portalPass) > 0) WiFi.softAP(portalSsid, portalPass);
+  else                   WiFi.softAP(portalSsid);
+  Serial.printf("Config AP '%s' started (attach)\n", portalSsid);
+
+  s.on("/wifi", HTTP_GET, [&](AsyncWebServerRequest *req){
+    req->send(200, "text/html", portalHTMLAtPath("/wifi"));
+  });
+
+  s.on("/wifi/save", HTTP_POST, [&](AsyncWebServerRequest *req){
+    if (req->hasParam("ssid", true) && req->hasParam("pass", true)) {
+      String ss = req->getParam("ssid", true)->value();
+      String pw = req->getParam("pass", true)->value();
+      saveNew(ss, pw);
+      req->send(200, "text/html", "<h2>Saved! Rebooting...</h2><script>setTimeout(()=>location.reload(),3000)</script>");
+      delay(1000);
+      ESP.restart();
+    } else {
+      req->send(400, "text/html", "<h2>Invalid Request</h2>");
+    }
+  });
 }

@@ -8,6 +8,7 @@
 #include <AsyncTCP.h>            // AsyncTCP.h should be a shim to RPAsyncTCP
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
+#include <vector>
 
 /**
  * WiFiManager
@@ -54,6 +55,12 @@ public:
      */
     void startPortal();
 
+    /** Attach config portal routes to an existing AsyncWebServer.
+     *  Routes will be available under /wifi and /wifi/save.
+     *  Also starts AP and mDNS for the portal.
+     */
+    void attachPortalRoutes(AsyncWebServer& s);
+
 private:
     Preferences       prefs;
     AsyncWebServer    server;
@@ -68,4 +75,5 @@ private:
     void saveNew(const String& ssid, const String& pass);
     bool attempt(const char* ssid, const char* pass, unsigned long timeout);
     String portalHTML();
+    String portalHTMLAtPath(const char* basePath);
 };

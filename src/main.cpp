@@ -2,6 +2,8 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
+#include <HTTPClient.h>
+#include "WifiManager.h"
 
 // ===================== WiFi =====================
 const char* WIFI_SSID = "EX_Network";
@@ -12,8 +14,8 @@ const char* AP_SSID  = "ESP32-Serial-Bridge";
 const char* AP_PASS  = "12345678";
 
 // ===================== UART =====================
-static const int RX_PIN = 16;   // ESP32 RX2 (připoj na TX zařízení)
-static const int TX_PIN = 17;   // ESP32 TX2 (připoj na RX zařízení)
+static const int RX_PIN = 20;   // ESP32-C3 U0RXD (připoj na TX zařízení)
+static const int TX_PIN = 21;   // ESP32-C3 U0TXD (připoj na RX zařízení)
 static uint32_t uartBaud = 115200;
 
 // Pokud chceš RS-485 (DE/RE řízení), odkomentuj:
@@ -23,7 +25,7 @@ static const int RS485_EN_PIN = 21; // DE a /RE svázané dohromady
 inline void rs485SetTx(bool en) { digitalWrite(RS485_EN_PIN, en ? HIGH : LOW); }
 #endif
 
-HardwareSerial SerialHW(2); // UART2
+HardwareSerial SerialHW(0); // UART0 on ESP32-C3 (pins 20/21)
 
 // ===================== Web =====================
 AsyncWebServer server(80);
@@ -91,25 +93,7 @@ void pumpUartToClients() {
   ws.cleanupClients();
 }
 
-void setupWiFi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.printf("WiFi: connecting to %s ...\n", WIFI_SSID);
-
-  uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 8000) {
-    delay(200);
-    Serial.print('.');
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("\nWiFi OK, IP: %s\n", WiFi.localIP().toString().c_str());
-  } else {
-    Serial.println("\nWiFi STA failed → starting AP");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(AP_SSID, AP_PASS);
-    Serial.printf("AP SSID: %s  PASS: %s  IP: %s\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str());
-  }
-}
+// WiFi is now managed by WifiManager (lib/wifi-manager)
 
 void setupMDNS() {
   // Start mDNS so the device is reachable at esp-web-serial.local
@@ -132,8 +116,18 @@ void setup() {
 
   SerialHW.begin(uartBaud, SERIAL_8N1, RX_PIN, TX_PIN);
 
-  setupWiFi();
-  setupMDNS();
+  // Connect WiFi using WifiManager; if failed, attach config portal to our server under /wifi
+  WiFiCredentials pref{WIFI_SSID, WIFI_PASS};
+  WifiManager wm(pref, 30000 /*ms*/, AP_SSID, AP_PASS);
+
+  bool connected = wm.connectWifi();
+  if (connected) {
+    setupMDNS();
+  } else {
+    wm.attachPortalRoutes(server);
+    Serial.printf("AP SSID: %s  PASS: %s  IP: %s\n", AP_SSID, AP_PASS, WiFi.softAPIP().toString().c_str());
+  }
+
   fetchWebUi();
 
   ws.onEvent(onWsEvent);
@@ -142,6 +136,12 @@ void setup() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *req){
     if (webIndex.length()) req->send(200, "text/html", webIndex);
     else req->send(500, "text/plain", "index.html missing");
+  });
+
+  // Info route: show WiFi portal link when not connected
+  server.on("/status", HTTP_GET, [](AsyncWebServerRequest *req){
+    String s = (WiFi.status() == WL_CONNECTED) ? "STA connected" : String("AP portal at http://") + WiFi.softAPIP().toString() + "/wifi";
+    req->send(200, "text/plain", s);
   });
 
   server.on("/setbaud", HTTP_GET, [](AsyncWebServerRequest *req){

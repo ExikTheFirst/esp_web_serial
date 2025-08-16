@@ -3,21 +3,16 @@
 Tento dokument udržuje přehled o zapojení, použitých pinech a součástkách pro tento projekt (ESP32 Web ↔ UART bridge).
 
 ## Výchozí piny v projektu
-Hodnoty v `src/main.cpp` (lze změnit):
+Hodnoty v `src/main.cpp` pro ESP32‑C3 SuperMini (lze změnit):
 
-- `RX_PIN = 16` – UART RX (ESP přijímá z externího zařízení)
-- `TX_PIN = 17` – UART TX (ESP vysílá do zařízení)
-- `RS485_EN_PIN = 21` – volitelné, povolí TX režim při RS‑485 (`USE_RS485`)
+- `RX_PIN = 20` – UART0 RX (ESP přijímá z externího zařízení)
+- `TX_PIN = 21` – UART0 TX (ESP vysílá do zařízení)
+- `RS485_EN_PIN = 10` – volitelné, povolí TX režim při RS‑485 (`USE_RS485`)
 
 Poznámka: Piny lze na ESP32 remapovat. Pokud používáte jinou desku/pinout, upravte výše uvedené konstanty.
 
-## Doporučení pro ESP32‑C3 Super Mini
-Na této desce bývá vhodné použít:
-
-- `RX_PIN = 20`, `TX_PIN = 21` (výchozí U0RXD/U0TXD)
-- `RS485_EN_PIN = 10` (libovolný volný GPIO)
-
-Před zapojením ověřte skutečný pinout vaší varianty desky.
+## Poznámky k ESP32‑C3 SuperMini
+Deska má GPIO 0–10 a 20, 21. UART0 je vyveden na 20/21 a je vhodný pro tento projekt. Před zapojením ověřte pinout vaší varianty desky.
 
 ## Zapojení 1: TTL UART zařízení (3.3 V)
 - ESP `TX_PIN` → zařízení `RX`
